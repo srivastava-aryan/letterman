@@ -1,4 +1,4 @@
-# Love Message Agent v2
+# Message Agent v2
 
 Generates a unique message with Gemini, emails it to *you* for approval, and only sends it
 to the target person once you click Approve. Scheduling is done externally so it works even
