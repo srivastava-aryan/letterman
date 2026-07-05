@@ -1,41 +1,32 @@
-import dotenv from 'dotenv';
+import dotenv from "dotenv";
 dotenv.config();
-import express from 'express';
-import mongoose from 'mongoose';
-import crypto from 'crypto';
-import nodemailer from 'nodemailer';
-import { generateLoveMessage } from './messageGenerator.js';
-import { wrapInTemplate } from './template.js';
+import express from "express";
+import mongoose from "mongoose";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+import { generateLoveMessage } from "./messageGenerator.js";
+import { wrapInTemplate } from "./template.js";
+import { sendEmail } from "./mailer.js";
 
 const app = express();
 
 // ---------- DB ----------
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch(err => console.error('❌ MongoDB connection error:', err));
+mongoose
+  .connect(process.env.MONGODB_URI)
+  .then(() => console.log("✅ MongoDB connected"))
+  .catch((err) => console.error("❌ MongoDB connection error:", err));
 
 const pendingSchema = new mongoose.Schema({
   subject: String,
-  message: String,   // raw message text (for logs/reference)
-  html: String,       // fully rendered html ready to send
-  token: String,       // random token required alongside the id to approve/reject
-  status: { type: String, default: 'pending' }, // pending | sent | rejected
-  createdAt: { type: Date, default: Date.now }
+  message: String, // raw message text (for logs/reference)
+  html: String, // fully rendered html ready to send
+  token: String, // random token required alongside the id to approve/reject
+  status: { type: String, default: "pending" }, // pending | sent | rejected
+  createdAt: { type: Date, default: Date.now },
 });
-const PendingMessage = mongoose.model('PendingMessage', pendingSchema);
+const PendingMessage = mongoose.model("PendingMessage", pendingSchema);
 
 // ---------- Mail ----------
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
 async function sendApprovalEmail(pending) {
   const baseUrl = process.env.BASE_URL; // e.g. https://your-app.onrender.com
   const approveUrl = `${baseUrl}/approve/${pending._id}?token=${pending.token}`;
@@ -60,11 +51,10 @@ async function sendApprovalEmail(pending) {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: { name: process.env.YOUR_NAME, address: process.env.EMAIL_USER },
+  await sendEmail({
     to: process.env.EMAIL_USER, // approval request goes to YOU
     subject: `[Approve?] ${pending.subject}`,
-    html
+    html,
   });
 }
 
@@ -72,78 +62,93 @@ async function sendApprovalEmail(pending) {
 
 // Called by the external scheduler (cron-job.org / GitHub Actions) on your schedule.
 // This both wakes the Render instance and kicks off generation + approval email.
-app.post('/trigger', async (req, res) => {
-  if (!process.env.TRIGGER_SECRET || req.query.secret !== process.env.TRIGGER_SECRET) {
-    return res.status(403).send('Forbidden');
+app.post("/trigger", async (req, res) => {
+  if (
+    !process.env.TRIGGER_SECRET ||
+    req.query.secret !== process.env.TRIGGER_SECRET
+  ) {
+    return res.status(403).send("Forbidden");
   }
 
   try {
     const generated = await generateLoveMessage();
-    const html = wrapInTemplate(generated.subject, generated.message, process.env.YOUR_NAME);
-    console.log(html); // Log the HTML for debugging purposes
-    const token = crypto.randomBytes(16).toString('hex');
+    const html = wrapInTemplate(
+      generated.subject,
+      generated.message,
+      process.env.YOUR_NAME,
+    );
+    const token = crypto.randomBytes(16).toString("hex");
 
     const pending = await PendingMessage.create({
       subject: generated.subject,
       message: generated.message,
       html,
-      token
+      token,
     });
 
     await sendApprovalEmail(pending);
-    console.log(`📝 Generated + sent for approval: ${pending.subject} (${pending._id})`);
-    res.status(200).send('Message generated and sent for approval.');
+    console.log(
+      `📝 Generated + sent for approval: ${pending.subject} (${pending._id})`,
+    );
+    res.status(200).send("Message generated and sent for approval.");
   } catch (err) {
-    console.error('Error in /trigger:', err);
-    res.status(500).send('Error generating message');
+    console.error("Error in /trigger:", err);
+    res.status(500).send("Error generating message");
   }
 });
 
-app.get('/approve/:id', async (req, res) => {
+app.get("/approve/:id", async (req, res) => {
   try {
     const pending = await PendingMessage.findById(req.params.id);
-    if (!pending) return res.status(404).send('Not found.');
-    if (pending.token !== req.query.token) return res.status(403).send('Invalid token.');
-    if (pending.status !== 'pending') return res.send(`This message was already marked as "${pending.status}".`);
+    if (!pending) return res.status(404).send("Not found.");
+    if (pending.token !== req.query.token)
+      return res.status(403).send("Invalid token.");
+    if (pending.status !== "pending")
+      return res.send(
+        `This message was already marked as "${pending.status}".`,
+      );
 
-    await transporter.sendMail({
-      from: { name: process.env.YOUR_NAME, address: process.env.EMAIL_USER },
+    await sendEmail({
       to: process.env.GIRLFRIEND_EMAIL,
       subject: pending.subject,
-      html: pending.html
+      html: pending.html,
     });
 
-    pending.status = 'sent';
+    pending.status = "sent";
     await pending.save();
 
     console.log(`💌 Approved and sent: ${pending.subject} (${pending._id})`);
-    res.send('Approved! The message has been sent. 💌');
+    res.send("Approved! The message has been sent. 💌");
   } catch (err) {
-    console.error('Error in /approve:', err);
-    res.status(500).send('Error sending message.');
+    console.error("Error in /approve:", err);
+    res.status(500).send("Error sending message.");
   }
 });
 
-app.get('/reject/:id', async (req, res) => {
+app.get("/reject/:id", async (req, res) => {
   try {
     const pending = await PendingMessage.findById(req.params.id);
-    if (!pending) return res.status(404).send('Not found.');
-    if (pending.token !== req.query.token) return res.status(403).send('Invalid token.');
-    if (pending.status !== 'pending') return res.send(`This message was already marked as "${pending.status}".`);
+    if (!pending) return res.status(404).send("Not found.");
+    if (pending.token !== req.query.token)
+      return res.status(403).send("Invalid token.");
+    if (pending.status !== "pending")
+      return res.send(
+        `This message was already marked as "${pending.status}".`,
+      );
 
-    pending.status = 'rejected';
+    pending.status = "rejected";
     await pending.save();
 
     console.log(`🗑️  Rejected: ${pending.subject} (${pending._id})`);
-    res.send('Rejected. This message will not be sent.');
+    res.send("Rejected. This message will not be sent.");
   } catch (err) {
-    console.error('Error in /reject:', err);
-    res.status(500).send('Error.');
+    console.error("Error in /reject:", err);
+    res.status(500).send("Error.");
   }
 });
 
 // Simple health check, also useful as a manual "wake up" ping
-app.get('/health', (req, res) => res.send('OK'));
+app.get("/health", (req, res) => res.send("OK"));
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
