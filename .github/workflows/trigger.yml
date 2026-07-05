@@ -1,0 +1,12 @@
+name: Trigger love message
+on:
+  schedule:
+    - cron: '30 2 * * *'  # 8:00 AM IST = 02:30 UTC
+  workflow_dispatch: {}    # lets you trigger manually from GitHub UI too
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call trigger endpoint
+        run: curl -X POST "https://letterman.onrender.com/trigger?secret=${{ secrets.TRIGGER_SECRET }}"
