@@ -1,4 +1,4 @@
-function wrapInTemplate(subject, message, name) {
+export function wrapInTemplate(subject, message, name) {
   return `
     <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
                 line-height: 1.8;
@@ -42,5 +42,3 @@ function wrapInTemplate(subject, message, name) {
     </div>
   `;
 }
-
-module.exports = { wrapInTemplate };

@@ -1,10 +1,11 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-const { generateLoveMessage } = require('./messageGenerator');
-const { wrapInTemplate } = require('./template');
+import dotenv from 'dotenv';
+dotenv.config();
+import express from 'express';
+import mongoose from 'mongoose';
+import crypto from 'crypto';
+import nodemailer from 'nodemailer';
+import { generateLoveMessage } from './messageGenerator.js';
+import { wrapInTemplate } from './template.js';
 
 const app = express();
 
@@ -79,6 +80,7 @@ app.post('/trigger', async (req, res) => {
   try {
     const generated = await generateLoveMessage();
     const html = wrapInTemplate(generated.subject, generated.message, process.env.YOUR_NAME);
+    console.log(html); // Log the HTML for debugging purposes
     const token = crypto.randomBytes(16).toString('hex');
 
     const pending = await PendingMessage.create({

@@ -3,6 +3,7 @@
   "version": "2.0.0",
   "description": "AI-generated love messages with an email approval workflow, triggered externally to survive Render free-tier sleep.",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
