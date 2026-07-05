@@ -1,7 +1,7 @@
 // Sends email via Brevo's HTTPS API instead of raw SMTP.
 // Render's free tier has unreliable outbound SMTP connectivity, so we avoid
 // opening SMTP sockets entirely and just make a normal HTTPS request instead.
-import fetch from 'node-fetch';
+// import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 dotenv.config();
 
