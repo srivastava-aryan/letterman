@@ -1,6 +1,12 @@
-import { ChatGoogle } from "@langchain/google";
+// const { ChatGoogleGenerativeAI } = require("@langchain/google-genai");
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import dotenv from 'dotenv';
+dotenv.config();
 
-const genAI = new ChatGoogle({ model: "gemini-2.5-flash", googleApiKey: process.env.GEMINI_API_KEY });
+const model = new ChatGoogleGenerativeAI({
+  model: "gemini-2.5-flash",
+  apiKey: process.env.GEMINI_API_KEY
+});
 
 // Themes to keep messages varied. Feel free to edit/extend this list.
 const themes = [
@@ -16,7 +22,6 @@ const themes = [
 ];
 
 async function generateLoveMessage() {
-  const model = genAI;
   const theme = themes[Math.floor(Math.random() * themes.length)];
 
   const prompt = `Write a short, warm, romantic email to my girlfriend.
@@ -33,7 +38,7 @@ Format exactly like this:
 {"subject": "short subject line with 1 emoji", "message": "the html-ready message body"}`;
 
   const result = await model.invoke(prompt);
-  const text = result.response.text().trim();
+  const text = result.content.trim();
 
   try {
     const cleaned = text.replace(/```json|```/g, '').trim();
